@@ -1,0 +1,140 @@
+rules_version = '2';
+
+// Staff roles come from the `role` custom claim set by the createStaff / setStaffRole functions.
+// Anything that changes stock, serial codes, order status or invoice numbers goes through
+// Cloud Functions (which bypass these rules) so the ledger and audit trail stay consistent.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function role() { return request.auth.token.get('role', ''); }
+    function isStaff() { return signedIn() && role() in ['superadmin', 'admin', 'ops', 'sales']; }
+    function can(area) {
+      return isStaff() && role() in {
+        'staff':      ['superadmin'],
+        'settings':   ['superadmin', 'admin'],
+        'decks':      ['superadmin', 'admin'],
+        'inventory':  ['superadmin', 'admin', 'ops'],
+        'orders':     ['superadmin', 'admin', 'ops'],
+        'customers':  ['superadmin', 'admin', 'ops', 'sales'],
+        'codes':      ['superadmin', 'admin', 'ops'],
+        'corporates': ['superadmin', 'admin', 'sales'],
+        'invoices':   ['superadmin', 'admin', 'sales'],
+        'samples':    ['superadmin', 'admin', 'ops', 'sales']
+      }[area];
+    }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function hasKeys(keys) { return request.resource.data.keys().hasAny(keys); }
+
+    match /staff/{uid} {
+      allow read: if isStaff();
+      allow write: if false; // createStaff / setStaffRole
+    }
+
+    match /settings/{id} {
+      allow read: if isStaff();
+      allow write: if can('settings');
+    }
+
+    match /fonts/{id} {
+      allow read: if signedIn();
+      allow write: if can('decks');
+    }
+
+    match /decks/{id} {
+      // Mobile app users (future) may read published decks.
+      allow read: if isStaff() || (signedIn() && resource.data.status == 'published');
+      allow create: if can('decks') && !hasKeys(['cards', 'artVersion', 'cardSize']);
+      allow update: if can('decks') && !changed().hasAny(['cards', 'artVersion', 'cardSize']);
+      allow delete: if can('decks') && resource.data.status == 'draft';
+    }
+
+    match /inventory/{sku} {
+      allow read: if isStaff();
+      allow create: if can('inventory')
+        && request.resource.data.onHand == 0 && request.resource.data.reserved == 0
+        && !hasKeys(['byLocation', 'soldByChannel', 'reservedByChannel']);
+      allow update: if can('inventory')
+        && !changed().hasAny(['onHand', 'reserved', 'byLocation', 'soldByChannel', 'reservedByChannel', 'unitCost']);
+      allow delete: if can('inventory') && resource.data.onHand == 0 && resource.data.reserved == 0;
+    }
+
+    match /stockMovements/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    match /customers/{id} {
+      allow read: if isStaff() || (signedIn() && request.auth.token.get('customerId', '') == id);
+      allow create: if can('customers')
+        && !hasKeys(['currentCodeId', 'codeLast4', 'appUid', 'redeemedAt', 'orderIds', 'orderCount', 'totalSpent'])
+        && request.resource.data.codeStatus == 'none';
+      allow update: if can('customers')
+        && !changed().hasAny(['codeStatus', 'currentCodeId', 'codeLast4', 'appUid', 'redeemedAt', 'orderIds', 'orderCount', 'totalSpent']);
+      allow delete: if role() == 'superadmin' && resource.data.get('orderCount', 0) == 0;
+    }
+
+    match /serialCodes/{id} {
+      allow read: if can('codes');
+      allow write: if false;
+    }
+
+    match /mail/{id} {
+      allow read: if can('codes');
+      allow write: if false;
+    }
+
+    match /orders/{id} {
+      allow read: if isStaff();
+      allow create, delete: if false; // createOrder / importOrders
+      allow update: if can('orders') && changed().hasOnly(['shipping', 'notes', 'updatedAt'])
+        && request.resource.data.shipping.shippedAt == resource.data.shipping.shippedAt;
+    }
+
+    match /corporates/{id} {
+      allow read: if isStaff();
+      allow create: if can('corporates') && !hasKeys(['samplesSent', 'lastSampleAt']);
+      allow update: if can('corporates') && !changed().hasAny(['samplesSent', 'lastSampleAt']);
+      allow delete: if role() in ['superadmin', 'admin'];
+
+      match /samples/{sampleId} {
+        allow read: if isStaff();
+        allow create, delete: if false; // recordSample (deducts stock)
+        allow update: if can('samples') && changed().hasOnly(['outcome', 'notes', 'followUpAt']);
+      }
+    }
+
+    match /corporateOrders/{id} {
+      allow read: if isStaff();
+      allow create: if can('corporates') && request.resource.data.stage == 'quote'
+        && !hasKeys(['stockDeducted'])
+        && (!hasKeys(['proof']) || request.resource.data.proof.status == 'pending');
+      allow update: if can('corporates')
+        && !changed().hasAny(['stage', 'stockDeducted', 'timeline'])
+        && (!changed().hasAny(['proof']) || request.resource.data.proof.status == 'pending');
+      allow delete: if can('corporates') && resource.data.stage == 'quote';
+    }
+
+    match /invoices/{id} {
+      allow read: if can('invoices') || can('corporates');
+      allow create: if can('invoices') && request.resource.data.status == 'draft'
+        && !hasKeys(['invoiceNo', 'pdfPath', 'amountPaid', 'payments', 'issuedAt']);
+      allow update: if can('invoices') && resource.data.status == 'draft' && request.resource.data.status == 'draft'
+        && !changed().hasAny(['invoiceNo', 'pdfPath', 'amountPaid', 'payments', 'issuedAt']);
+      allow delete: if can('invoices') && resource.data.status == 'draft';
+    }
+
+    match /auditLogs/{id} {
+      allow read: if can('settings');
+      // Staff may append entries for their own direct edits; nobody may change history.
+      allow create: if isStaff() && request.resource.data.by.uid == request.auth.uid
+        && request.resource.data.at == request.time;
+      allow update, delete: if false;
+    }
+
+    // counters, rateLimits and anything else: functions only
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

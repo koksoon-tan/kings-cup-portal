@@ -1,0 +1,8 @@
+node_modules/
+functions/lib/
+admin/dist/
+admin/.env.local
+*.log
+.firebase/
+tests/sample-invoice.pdf
+*.tsbuildinfo
