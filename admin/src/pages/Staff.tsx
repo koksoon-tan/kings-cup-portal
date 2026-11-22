@@ -9,6 +9,7 @@ import { PageHeader, Loading } from "../components/ui";
 import { ROLES, ROLE_DESCRIPTIONS } from "../lib/roles";
 import { call } from "../lib/call";
 import { fmtDate } from "../lib/format";
+import { askConfirm } from "../lib/confirm";
 
 export default function StaffPage() {
   const { user } = useAuth();
@@ -46,7 +47,7 @@ export default function StaffPage() {
                   <Table.Td ta="right">
                     {s.id !== user?.uid && (s.disabled
                       ? <Button size="xs" variant="light" onClick={() => setRole(s.id, "ops")}>Restore as ops</Button>
-                      : <Button size="xs" variant="subtle" color="red" onClick={() => confirm(`Remove ${s.email}'s access?`) && setRole(s.id, null)}>Remove access</Button>)}
+                      : <Button size="xs" variant="subtle" color="red" onClick={async () => (await askConfirm(`Remove ${s.email}'s access? They will be signed out.`, "Remove access")) && setRole(s.id, null)}>Remove access</Button>)}
                   </Table.Td>
                 </Table.Tr>
               ))}

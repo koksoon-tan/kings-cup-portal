@@ -3,6 +3,7 @@ import { Center, Paper, Stack, Title, TextInput, PasswordInput, Button, Text, An
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { toastError, toastOk } from "../lib/call";
+import { DemoLoginHelp } from "@demo";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -34,6 +35,7 @@ export default function LoginPage() {
             <PasswordInput label="Password" value={password} onChange={(e) => setPassword(e.currentTarget.value)} required autoComplete="current-password" />
             <Button type="submit" loading={busy}>Sign in</Button>
             <Anchor size="sm" component="button" type="button" onClick={reset}>Forgot password?</Anchor>
+            <DemoLoginHelp onPick={(e, p) => { setEmail(e); setPassword(p); }} />
           </Stack>
         </form>
       </Paper>

@@ -16,6 +16,7 @@ import { logAudit } from "../lib/audit";
 import { InvoicesTab } from "./CorporateDetail";
 import { useLocations } from "./Inventory";
 import { useNavigate } from "react-router";
+import { askConfirm } from "../lib/confirm";
 
 const FLOW = CORP_ORDER_STAGES.filter((s) => s !== "cancelled");
 const HINT: Record<string, string> = {
@@ -109,7 +110,7 @@ export default function CorporateOrderPage() {
       </Breadcrumbs>
       <PageHeader title={<Group gap="sm">{o.title}<StatusBadge status={o.stage} size="md" /></Group>} subtitle={!closed && HINT[o.stage]}
         actions={<>
-          {o.stage === "quote" && <Button variant="subtle" color="red" onClick={async () => { if (confirm("Delete this order?")) { await deleteDoc(doc(db, "corporateOrders", id!)); nav(`/corporates/${o.corporateId}`); } }}>Delete</Button>}
+          {o.stage === "quote" && <Button variant="subtle" color="red" onClick={async () => { if (await askConfirm("Delete this order?", "Delete order")) { await deleteDoc(doc(db, "corporateOrders", id!)); nav(`/corporates/${o.corporateId}`); } }}>Delete</Button>}
           {!closed && <Button variant="light" color="red" onClick={() => setStage("cancelled")}>Cancel order</Button>}
           {dirty && <Button variant="light" onClick={save}>Save changes</Button>}
           {next && <Button onClick={() => { setSf({ note: "", deductStock: !!o.sku, location: null, courier: f.shipping.courier, trackingNo: f.shipping.trackingNo }); setStage(next); }}>Move to {label(next)}</Button>}

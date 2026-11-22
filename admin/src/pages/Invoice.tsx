@@ -14,6 +14,7 @@ import { PageHeader, Loading, StatusBadge, Field } from "../components/ui";
 import { fmtDate, money, label, toDate } from "../lib/format";
 import { call, toastError, toastOk } from "../lib/call";
 import { logAudit } from "../lib/audit";
+import { askConfirm, askText } from "../lib/confirm";
 
 export default function InvoicePage() {
   const { id } = useParams();
@@ -64,7 +65,7 @@ export default function InvoicePage() {
     catch { /* toast */ } finally { setBusy(false); }
   };
   const voidIt = async () => {
-    const reason = prompt("Why are you voiding this invoice?");
+    const reason = await askText("Void invoice", "Why are you voiding this invoice?");
     if (reason) await call("voidInvoice", { invoiceId: id, reason }, "Invoice voided").catch(() => undefined);
   };
   const title = i.invoiceNo ?? `Draft ${label(i.type)} ${i.type === "quote" ? "" : "invoice"}`;
@@ -79,7 +80,7 @@ export default function InvoicePage() {
       </Breadcrumbs>
       <PageHeader title={<Group gap="sm">{title}<StatusBadge status={i.status} size="md" /></Group>} subtitle={`${label(i.type)} · ${corp.data?.company ?? ""}`}
         actions={<>
-          {editable && <Button variant="subtle" color="red" onClick={async () => { if (confirm("Delete this draft?")) { await deleteDoc(doc(db, "invoices", id!)); logAudit("invoice.deleteDraft", "invoices", id!); nav(-1); } }}>Delete draft</Button>}
+          {editable && <Button variant="subtle" color="red" onClick={async () => { if (await askConfirm("Delete this draft?", "Delete draft")) { await deleteDoc(doc(db, "invoices", id!)); logAudit("invoice.deleteDraft", "invoices", id!); nav(-1); } }}>Delete draft</Button>}
           {editable && dirty && <Button variant="light" onClick={() => save().then(() => toastOk("Draft saved")).catch(toastError)}>Save draft</Button>}
           {editable && <Button onClick={issue} loading={busy}>Issue &amp; create PDF</Button>}
           {i.pdfPath && <Button variant="light" leftSection={<IconDownload size={16} />} onClick={download}>PDF</Button>}

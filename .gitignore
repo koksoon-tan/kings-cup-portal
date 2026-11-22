@@ -6,3 +6,4 @@ admin/.env.local
 .firebase/
 tests/sample-invoice.pdf
 *.tsbuildinfo
+admin/dist-demo/

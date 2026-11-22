@@ -22,6 +22,7 @@ import { logAudit } from "../lib/audit";
 import { toastError, toastOk } from "../lib/call";
 import { fmtDate, toDate } from "../lib/format";
 import { useNavigate } from "react-router";
+import { askConfirm } from "../lib/confirm";
 
 const EDITABLE = [
   "name", "code", "description", "status", "languages", "defaultLanguage", "countries", "appAccess", "appPrice",
@@ -219,7 +220,7 @@ export default function DeckEditorPage() {
   };
 
   const remove = async () => {
-    if (!confirm("Delete this draft deck?")) return;
+    if (!(await askConfirm("Delete this draft deck? This can't be undone.", "Delete deck"))) return;
     try { await deleteDoc(deckRef); logAudit("deck.delete", "decks", id!); nav("/decks"); } catch (e) { toastError(e); }
   };
 

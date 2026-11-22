@@ -4,12 +4,13 @@ import { Routes, Route, NavLink as RouterLink, useLocation, Navigate } from "rea
 import { signOut } from "firebase/auth";
 import {
   IconLayoutDashboard, IconCards, IconPackage, IconShoppingCart, IconUsers, IconKey, IconBuilding,
-  IconSettings, IconUserShield, IconHistory, IconLogout,
+  IconSettings, IconUserShield, IconHistory, IconLogout, IconMail,
 } from "@tabler/icons-react";
 import { auth } from "./lib/firebase";
 import { useAuth } from "./lib/auth";
 import { Area, canAccess } from "./lib/roles";
 import { Loading } from "./components/ui";
+import { IS_DEMO, DemoBanner, DemoInboxPage } from "@demo";
 import LoginPage from "./pages/Login";
 import HomePage from "./pages/Home";
 import DecksPage from "./pages/Decks";
@@ -41,6 +42,7 @@ const NAV: { to: string; label: string; icon: typeof IconCards; area: Area | nul
   { to: "/settings", label: "Settings", icon: IconSettings, area: "settings" },
   { to: "/staff", label: "Staff", icon: IconUserShield, area: "staff" },
   { to: "/audit", label: "Audit log", icon: IconHistory, area: "settings" },
+  ...(IS_DEMO ? [{ to: "/demo-inbox", label: "Demo inbox", icon: IconMail, area: null }] : []),
 ];
 
 function Guard({ area, children }: { area: Area; children: React.ReactNode }) {
@@ -71,9 +73,10 @@ export default function App() {
   }
 
   return (
-    <AppShell header={{ height: 56 }} navbar={{ width: 230, breakpoint: "sm", collapsed: { mobile: !opened } }} padding="md">
+    <AppShell header={{ height: IS_DEMO ? 86 : 56 }} navbar={{ width: 230, breakpoint: "sm", collapsed: { mobile: !opened } }} padding="md">
       <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
+        {IS_DEMO && <DemoBanner />}
+        <Group h={56} px="md" justify="space-between">
           <Group gap="xs">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <Text fw={800} size="lg">👑 Kings Cup <Text span c="dimmed" fw={500}>Admin</Text></Text>
@@ -122,6 +125,7 @@ export default function App() {
           <Route path="/settings" element={<Guard area="settings"><SettingsPage /></Guard>} />
           <Route path="/staff" element={<Guard area="staff"><StaffPage /></Guard>} />
           <Route path="/audit" element={<Guard area="settings"><AuditPage /></Guard>} />
+          {IS_DEMO && <Route path="/demo-inbox" element={<DemoInboxPage />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell.Main>
