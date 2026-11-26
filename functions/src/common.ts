@@ -12,7 +12,7 @@ export const storage = getStorage();
 export { FieldValue, Timestamp, HttpsError };
 
 /** Region for every function. Keep it in the same region as your Firestore DB / Storage bucket. */
-export const REGION = "asia-southeast1";
+export const REGION = "us-east1";
 
 // ---------------------------------------------------------------------------
 // Roles & permissions (mirror of admin/src/lib/roles.ts – keep in sync)

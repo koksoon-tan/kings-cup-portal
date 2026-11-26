@@ -32,7 +32,7 @@ function client(name) {
   const auth = getAuth(app); connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   const db = fs.getFirestore(app); fs.connectFirestoreEmulator(db, "127.0.0.1", 8080);
   const st = getStorage(app); connectStorageEmulator(st, "127.0.0.1", 9199);
-  const fn = getFunctions(app, "asia-southeast1"); connectFunctionsEmulator(fn, "127.0.0.1", 5001);
+  const fn = getFunctions(app, "us-east1"); connectFunctionsEmulator(fn, "127.0.0.1", 5001);
   const call = async (name, data) => (await httpsCallable(fn, name, { timeout: 300000 })(data)).data;
   return { app, auth, db, st, call };
 }

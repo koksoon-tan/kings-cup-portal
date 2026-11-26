@@ -1,7 +1,1 @@
-[
-  {
-    "origin": ["http://localhost:5173", "https://YOUR-PROJECT-ID.web.app", "https://YOUR-PROJECT-ID.firebaseapp.com"],
-    "method": ["GET"],
-    "maxAgeSeconds": 3600
-  }
-]
+[{"origin":["http://localhost:5173","https://kings-cup-portal.web.app","https://kings-cup-portal.firebaseapp.com"],"method":["GET"],"maxAgeSeconds":3600}]

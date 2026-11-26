@@ -88,10 +88,11 @@ export async function seedDemo(onStep: (s: string) => void) {
   onStep("Drawing 55 cards for the Classic deck");
   const deckId = newId();
   const actions = Object.fromEntries(Object.entries(ACTIONS).map(([k, [t, x, tm, xm]]) => [k, { en: { title: t, text: x }, ms: { title: tm, text: xm } }]));
+  commit([{ op: "set", path: "settings/actions", data: { actions } }]);
   commit([{ op: "set", path: `decks/${deckId}`, data: {
     name: "Kings Cup Classic", code: "CLASSIC-01", type: "inhouse", corporateId: null, designer: null, status: "published",
     languages: ["en", "ms"], defaultLanguage: "en", countries: ["MY", "SG"], appAccess: "purchase", appPrice: 0, expiryDate: null,
-    description: "Our launch deck — sold on Kickstarter, Shopee, Lazada and the website.", actions, cardOverrides: {},
+    description: "Our launch deck — sold on Kickstarter, Shopee, Lazada and the website.", cardOverrides: {},
     textStyle: { fontId: null, fontFamily: "Georgia", color: "#3c096c", sizePct: 5.2, align: "center", vAlign: "middle", bold: true, uppercase: false, strokeColor: "#ffffff", strokeWidth: 0, showTitle: true, box: { x: 12, y: 59, w: 76, h: 30 } },
     upload: { status: "uploading", errors: [], warnings: [] }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
   } }]);
@@ -104,7 +105,7 @@ export async function seedDemo(onStep: (s: string) => void) {
   commit([{ op: "set", path: `decks/${corpDeck}`, data: {
     name: "Velvet Lounge — VIP Night", code: "VELVET-01", type: "external", corporateId: null, designer: { name: "Nadia Studio", email: "nadia@studio.demo", royaltyPct: 12 },
     status: "draft", languages: ["en"], defaultLanguage: "en", countries: ["MY"], appAccess: "paid", appPrice: 4.9, expiryDate: null, description: "",
-    actions: {}, cardOverrides: {}, textStyle: { fontId: null, fontFamily: "Arial", color: "#111111", sizePct: 5.5, align: "center", vAlign: "middle", bold: true, uppercase: false, strokeColor: "#ffffff", strokeWidth: 0, showTitle: true, box: { x: 12, y: 62, w: 76, h: 26 } },
+    cardOverrides: {}, textStyle: { fontId: null, fontFamily: "Arial", color: "#111111", sizePct: 5.5, align: "center", vAlign: "middle", bold: true, uppercase: false, strokeColor: "#ffffff", strokeWidth: 0, showTitle: true, box: { x: 12, y: 62, w: 76, h: 26 } },
     upload: { status: "none", errors: [], warnings: [] }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
   } }]);
 

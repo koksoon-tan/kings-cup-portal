@@ -1,4 +1,4 @@
-import { TextStyle, TextBox, rankOf } from "./cards";
+import { TextStyle, TextBox, TitleStyle, rankOf } from "./cards";
 import { storageUrl } from "./hooks";
 
 /**
@@ -35,6 +35,23 @@ export function ensureFont(font: FontDoc | undefined): Promise<void> {
 
 export function familyFor(style: TextStyle) {
   return style.fontId ? `"${fontKey(style.fontId)}", ${style.fontFamily || "Arial"}` : `"${style.fontFamily || "Arial"}"`;
+}
+
+/** Title style with every gap filled from the action text style. */
+export function resolveTitle(style: TextStyle) {
+  const t: TitleStyle = style.title ?? {};
+  const fontId = t.fontId !== undefined ? t.fontId : style.fontId;
+  return {
+    fontId,
+    fontFamily: t.fontFamily ?? style.fontFamily,
+    color: t.color ?? style.color,
+    sizePct: t.sizePct ?? style.sizePct * 1.3,
+    align: t.align ?? style.align,
+    bold: t.bold ?? true,
+    uppercase: t.uppercase ?? style.uppercase,
+    strokeColor: t.strokeColor ?? style.strokeColor,
+    strokeWidth: t.strokeWidth ?? style.strokeWidth,
+  };
 }
 
 const imgCache = new Map<string, Promise<HTMLImageElement>>();
@@ -98,16 +115,21 @@ export function drawCard(
 
   const bx = (box.x / 100) * W, by = (box.y / 100) * H, bw = (box.w / 100) * W, bh = (box.h / 100) * H;
   const family = familyFor(style);
-  const tf = (s: string) => (style.uppercase ? s.toUpperCase() : s);
-  const title = style.showTitle ? tf(content.title || "") : "";
-  const body = tf(content.text || "");
+  const ts = resolveTitle(style);
+  const tfBody = (s: string) => (style.uppercase ? s.toUpperCase() : s);
+  const tfTitle = (s: string) => (ts.uppercase ? s.toUpperCase() : s);
+  const title = style.showTitle ? tfTitle(content.title || "") : "";
+  const body = tfBody(content.text || "");
+  const titleFamily = familyFor(ts as TextStyle);
+  // Title and action text scale together so the box still fits; their ratio stays as set.
+  const titleRatio = ts.sizePct / style.sizePct;
 
   // Shrink to fit the box.
   let fs = (style.sizePct / 100) * W;
   let titleLines: string[] = [], bodyLines: string[] = [], titleFs = 0, total = 0;
   for (let i = 0; i < 30; i++) {
-    titleFs = fs * 1.3;
-    ctx.font = `bold ${titleFs}px ${family}`;
+    titleFs = fs * titleRatio;
+    ctx.font = `${ts.bold ? "bold " : ""}${titleFs}px ${titleFamily}`;
     titleLines = title ? wrap(ctx, title, bw) : [];
     ctx.font = `${style.bold ? "bold " : ""}${fs}px ${family}`;
     bodyLines = body ? wrap(ctx, body, bw) : [];
@@ -117,21 +139,22 @@ export function drawCard(
   }
 
   let y = style.vAlign === "top" ? by : style.vAlign === "bottom" ? by + bh - total : by + (bh - total) / 2;
-  const x = style.align === "left" ? bx : style.align === "right" ? bx + bw : bx + bw / 2;
-  ctx.textAlign = style.align;
+  const xFor = (align: "left" | "center" | "right") => (align === "left" ? bx : align === "right" ? bx + bw : bx + bw / 2);
   ctx.textBaseline = "top";
   ctx.lineJoin = "round";
-  ctx.fillStyle = style.color;
-  ctx.strokeStyle = style.strokeColor;
-  const line = (t: string, size: number) => {
-    if (style.strokeWidth > 0) { ctx.lineWidth = (style.strokeWidth / 100) * size * 2; ctx.strokeText(t, x, y); }
+  const line = (t: string, size: number, o: { align: "left" | "center" | "right"; color: string; strokeColor: string; strokeWidth: number }) => {
+    ctx.textAlign = o.align;
+    ctx.fillStyle = o.color;
+    ctx.strokeStyle = o.strokeColor;
+    const x = xFor(o.align);
+    if (o.strokeWidth > 0) { ctx.lineWidth = (o.strokeWidth / 100) * size * 2; ctx.strokeText(t, x, y); }
     ctx.fillText(t, x, y);
   };
-  ctx.font = `bold ${titleFs}px ${family}`;
-  for (const t of titleLines) { line(t, titleFs); y += titleFs * 1.15; }
+  ctx.font = `${ts.bold ? "bold " : ""}${titleFs}px ${titleFamily}`;
+  for (const t of titleLines) { line(t, titleFs, ts); y += titleFs * 1.15; }
   if (title && body) y += fs * 0.35;
   ctx.font = `${style.bold ? "bold " : ""}${fs}px ${family}`;
-  for (const t of bodyLines) { line(t, fs); y += fs * 1.2; }
+  for (const t of bodyLines) { line(t, fs, style); y += fs * 1.2; }
 }
 
 /** Resolves the text + box for a card, honouring per-card overrides. */

@@ -29,6 +29,19 @@ export const COUNTRIES: Record<string, string> = {
 };
 
 export interface TextBox { x: number; y: number; w: number; h: number } // percentages of card size
+/** Title styling. Any field left undefined follows the action text style (size defaults to 1.3x). */
+export interface TitleStyle {
+  fontId?: string | null;
+  fontFamily?: string;
+  color?: string;
+  sizePct?: number;
+  align?: "left" | "center" | "right";
+  bold?: boolean;
+  uppercase?: boolean;
+  strokeColor?: string;
+  strokeWidth?: number;
+}
+
 export interface TextStyle {
   fontId: string | null;
   fontFamily: string;
@@ -41,6 +54,7 @@ export interface TextStyle {
   strokeColor: string;
   strokeWidth: number;
   showTitle: boolean;
+  title?: TitleStyle;
   box: TextBox;
 }
 
