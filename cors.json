@@ -3,9 +3,10 @@
     "origin": [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://YOUR-ADMIN-SITE.web.app",
-      "https://YOUR-PLAY-SITE.web.app",
-      "https://play.YOUR-DOMAIN.com"
+      "https://kings-cup-portal.web.app",
+      "https://kings-cup-portal.firebaseapp.com",
+      "https://kings-cup-play.web.app",
+      "https://kings-cup-play.firebaseapp.com"
     ],
     "method": [
       "GET",

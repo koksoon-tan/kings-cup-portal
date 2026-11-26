@@ -40,6 +40,8 @@ export interface Setup {
   jokers: boolean;
   endMode: EndMode;
   effects?: Partial<Record<string, GameEffect>>;
+  /** Cards that have art; defaults to the full deck. */
+  available?: string[];
 }
 
 /** Fisher–Yates with a cryptographic random source. */
@@ -74,7 +76,7 @@ export function createGame(s: Setup, rand?: (n: number) => number): Game {
     artVersion: s.artVersion,
     lang: s.lang,
     players,
-    order: shuffle(playableCards(s.jokers), rand),
+    order: shuffle(playableCards(s.jokers).filter((k) => !s.available || s.available.includes(k)), rand),
     idx: 0,
     turn: 0,
     drawn: [],
@@ -165,7 +167,7 @@ export function upNext(g: Game, n = 3): Player[] {
 }
 
 export function replay(g: Game, rand?: (n: number) => number): Game {
-  return createGame({ deckId: g.deckId, artVersion: g.artVersion, lang: g.lang, names: g.players.map((p) => p.name), jokers: g.jokers, endMode: g.endMode, effects: g.effects }, rand);
+  return createGame({ deckId: g.deckId, artVersion: g.artVersion, lang: g.lang, names: g.players.map((p) => p.name), jokers: g.jokers, endMode: g.endMode, effects: g.effects, available: g.order }, rand);
 }
 
 export interface Summary {

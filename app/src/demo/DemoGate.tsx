@@ -1,6 +1,6 @@
 // Demo mode (vite --mode demo): the whole backend runs in the browser with sample data.
 import { ReactNode, useEffect, useState, useSyncExternalStore } from "react";
-import { isSeeded, seedDemo } from "../../../admin/src/demo/seed";
+import { isSeeded, needsReset, seedDemo } from "../../../admin/src/demo/seed";
 import { resetDemo, store, subscribe } from "../../../admin/src/demo/core";
 import { Sheet } from "../components/ui";
 
@@ -13,6 +13,11 @@ export function DemoGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (ready) return;
+    if (needsReset()) { // demo data from an older version: start fresh
+      try { localStorage.clear(); } catch { /* blocked */ }
+      resetDemo().then(() => location.reload());
+      return;
+    }
     seedDemo((s) => { setStep(s); setN((x) => x + 1); }).then(() => setReady(true)).catch((e) => { console.error(e); setError(String(e?.message ?? e)); });
   }, []);
   if (ready) return <>{children}</>;

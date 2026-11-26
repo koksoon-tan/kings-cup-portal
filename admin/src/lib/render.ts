@@ -7,7 +7,7 @@ import { storageUrl } from "./hooks";
  */
 
 export { SYSTEM_FONTS, BUILTIN_FONTS } from "../../../shared/cards";
-export { drawCard, contentFor, familyFor, fontKey } from "../../../shared/render";
+export { drawCard, contentFor, familyFor, fontKey, resolveTitle } from "../../../shared/render";
 export type { CardText } from "../../../shared/render";
 
 export interface FontDoc { id: string; name: string; path: string }

@@ -113,12 +113,13 @@ node tests/emulator-e2e.mjs
 - **Login:** the player types the code from their email (`redeemSerialCode`). The code is used up, and Firebase keeps them signed in on that device indefinitely. Every code for a customer signs into the same account (`cust_<customerId>`), so decks follow them to a new phone.
 - **Lost code / new phone:** "Lost your code?" asks for their email and calls `requestAccessCode`. If it matches a customer, any unused code is cancelled and a new one is emailed. The answer is the same for unknown emails, and requests are limited to 3 an hour per email (10 per IP).
 - **Blocking:** ticking "Blocked from the app" on a customer disables their app account and signs them out everywhere.
-- **Deck library:** published decks that are free, or that the customer owns. Ownership (`customers.ownedDeckIds`) is added automatically when an order for an SKU linked to the deck is paid. Staff can also add or remove decks on the customer page. The first time a deck is opened, all 55 card images (900px game versions) and its fonts are saved on the device, so games work offline.
+- **Card text:** comes from the global **Action text** page (`settings/actions`), which signed-in players can read; per-card overrides and the title style come from each deck.
+- **Deck library:** published decks that are free, or that the customer owns. Decks with only some cards uploaded can still be played with the cards that have art. Ownership (`customers.ownedDeckIds`) is added automatically when an order for an SKU linked to the deck is paid. Staff can also add or remove decks on the customer page. The first time a deck is opened, all 55 card images (900px game versions) and its fonts are saved on the device, so games work offline.
 - **Setup:** 2–12 players (optional names = turn order), language, jokers on/off, and whether the game ends on the last card or on the 4th King.
-- **Play:** one shared device. A banner shows whose turn it is; tapping anywhere draws the next card, which flips with the deck's action text drawn by the same renderer as the dashboard preview. **Game effects** are set per card value in the dashboard (Deck → Action text → "In the player app"): *Make a rule*, *Pick a mate*, *Becomes master* and *King's Cup* (fills the cup; the 4th one overflows). The pause menu has undo, skip, "At the table", how to play and end game. The game is saved after every card.
+- **Play:** one shared device. A banner shows whose turn it is; tapping anywhere draws the next card, which flips with the deck's action text drawn by the same renderer as the dashboard preview. **Game effects** are set per card value on the dashboard's global **Action text** page ("In the player app" column): *Make a rule*, *Pick a mate*, *Becomes master* and *King's Cup* (fills the cup; the 4th one overflows). The pause menu has undo, skip, "At the table", how to play and end game. The game is saved after every card.
 - **Installable:** it's a PWA, so players can add it to their home screen. The app shell works offline.
 
-Run it locally against the emulators:
+Run it locally against the emulators (create `app/.env.emulator` with the same values as the admin dashboard's, since `.env.*` files aren't committed):
 
 ```bash
 cd app && npm install

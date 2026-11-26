@@ -10,7 +10,10 @@ export const DEMO_USERS = [
   { email: "sales@demo.test", role: "sales", name: "Sam (Sales)" },
 ];
 
-export const isSeeded = () => store.has("_demo/meta");
+/** Bump when the sample data changes shape, so browsers holding older demo data rebuild it. */
+export const SEED_VERSION = 2;
+export const isSeeded = () => store.get("_demo/meta")?.version === SEED_VERSION;
+export const needsReset = () => store.has("_demo/meta") && !isSeeded();
 
 const daysAgo = (d: number) => new Date(Date.now() - d * 86400_000).toISOString();
 
@@ -35,13 +38,15 @@ export async function seedDemo(onStep: (s: string) => void) {
   onStep("Drawing the circus deck");
   const deckId = newId();
   const actions = Object.fromEntries(Object.entries(CIRCUS_ACTIONS).map(([k, v]) => [k, { en: { title: v.en[0], text: v.en[1] }, ms: { title: v.ms[0], text: v.ms[1] } }]));
+  // Action text and player-app effects are global (Action text page), shared by every deck.
+  commit([{ op: "set", path: "settings/actions", data: { actions, effects: { J: "rule", 8: "mate", Q: "master", K: "cup" } } }]);
   commit([{ op: "set", path: `decks/${deckId}`, data: {
     name: "Kings Cup Circus", code: "CIRCUS-01", type: "inhouse", corporateId: null, designer: null, status: "published",
     languages: ["en", "ms"], defaultLanguage: "en", countries: ["MY", "SG"], appAccess: "purchase", appPrice: 0, expiryDate: null,
-    description: "Our launch deck: step right up to the big top.", actions, cardOverrides: {},
-    effects: { J: "rule", 8: "mate", Q: "master", K: "cup" },
-    textStyle: { fontId: null, fontFamily: "Barlow Condensed", titleFontId: null, titleFontFamily: "Rye", titleColor: "#f2b632", color: "#fbf1dc",
+    description: "Our launch deck: step right up to the big top.", cardOverrides: {},
+    textStyle: { fontId: null, fontFamily: "Barlow Condensed", color: "#fbf1dc",
       sizePct: 4.2, align: "left", vAlign: "top", bold: true, uppercase: false, strokeColor: "#8e0b22", strokeWidth: 0, showTitle: true,
+      title: { fontId: null, fontFamily: "Rye", color: "#f2b632", sizePct: 5.2, bold: false },
       box: { x: 12.5, y: 67.3, w: 60, h: 23.8 } },
     upload: { status: "uploading", errors: [], warnings: [] }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
   } }]);
@@ -53,7 +58,7 @@ export async function seedDemo(onStep: (s: string) => void) {
   commit([{ op: "set", path: `decks/${newId()}`, data: {
     name: "Halloween Night", code: "HALLOWEEN-01", type: "inhouse", corporateId: null, designer: null, status: "published",
     languages: ["en"], defaultLanguage: "en", countries: ["MY"], appAccess: "purchase", appPrice: 0, expiryDate: null,
-    description: "A limited-edition deck of spooky circus cards.", actions: {}, cardOverrides: {}, effects: { K: "cup" },
+    description: "A limited-edition deck of spooky circus cards.", cardOverrides: {},
     textStyle: { fontId: null, fontFamily: "Arial", color: "#111111", sizePct: 5.5, align: "center", vAlign: "middle", bold: true, uppercase: false, strokeColor: "#ffffff", strokeWidth: 0, showTitle: true, box: { x: 12, y: 62, w: 76, h: 26 } },
     upload: { status: "none", errors: [], warnings: [] }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
   } }]);
@@ -62,7 +67,7 @@ export async function seedDemo(onStep: (s: string) => void) {
   commit([{ op: "set", path: `decks/${corpDeck}`, data: {
     name: "Velvet Lounge — VIP Night", code: "VELVET-01", type: "external", corporateId: null, designer: { name: "Nadia Studio", email: "nadia@studio.demo", royaltyPct: 12 },
     status: "draft", languages: ["en"], defaultLanguage: "en", countries: ["MY"], appAccess: "paid", appPrice: 4.9, expiryDate: null, description: "",
-    actions: {}, cardOverrides: {}, textStyle: { fontId: null, fontFamily: "Arial", color: "#111111", sizePct: 5.5, align: "center", vAlign: "middle", bold: true, uppercase: false, strokeColor: "#ffffff", strokeWidth: 0, showTitle: true, box: { x: 12, y: 62, w: 76, h: 26 } },
+    cardOverrides: {}, textStyle: { fontId: null, fontFamily: "Arial", color: "#111111", sizePct: 5.5, align: "center", vAlign: "middle", bold: true, uppercase: false, strokeColor: "#ffffff", strokeWidth: 0, showTitle: true, box: { x: 12, y: 62, w: 76, h: 26 } },
     upload: { status: "none", errors: [], warnings: [] }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
   } }]);
 
@@ -138,6 +143,6 @@ export async function seedDemo(onStep: (s: string) => void) {
   } }]);
   await invoke("issueInvoice", { invoiceId: invId }, salesUid);
 
-  commit([{ op: "set", path: "_demo/meta", data: { seededAt: Timestamp.now() } }]);
+  commit([{ op: "set", path: "_demo/meta", data: { seededAt: Timestamp.now(), version: SEED_VERSION } }]);
   onStep("Done");
 }

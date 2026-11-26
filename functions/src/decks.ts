@@ -55,7 +55,8 @@ export const processDeckZip = onObjectFinalized(
         found.set(key, { entry, ext, original: base });
       }
       const missing = CARD_KEYS.filter((k) => !found.has(k));
-      if (missing.length) errors.push(`Missing ${missing.length} card(s): ${missing.join(", ")}`);
+      if (found.size === 0) errors.push("No card images found in the zip. Name files like AS.png, 10H.jpg, JK1.png, BACK.png.");
+      else if (missing.length) warnings.push(`${missing.length} card(s) not included: ${missing.join(", ")}`);
 
       // Inspect every image before writing anything.
       const images = new Map<string, { data: Buffer; width: number; height: number; density: number; ext: string }>();

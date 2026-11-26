@@ -6,7 +6,7 @@ import { IconPlus } from "@tabler/icons-react";
 import { db } from "../lib/firebase";
 import { useCollection } from "../lib/hooks";
 import { PageHeader, StatusBadge, Empty, Loading } from "../components/ui";
-import { DEFAULT_STYLE, DEFAULT_EFFECTS } from "../lib/cards";
+import { DEFAULT_STYLE } from "../lib/cards";
 import { fmtDate, label } from "../lib/format";
 import { logAudit } from "../lib/audit";
 import { toastError } from "../lib/call";
@@ -43,7 +43,6 @@ export default function DecksPage() {
         description: "",
         actions: {},
         cardOverrides: {},
-        effects: DEFAULT_EFFECTS,
         textStyle: DEFAULT_STYLE,
         upload: { status: "none", errors: [], warnings: [] },
         createdAt: serverTimestamp(),

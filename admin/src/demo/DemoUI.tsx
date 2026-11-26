@@ -9,11 +9,11 @@ import { db } from "../lib/firebase";
 import { useCollection } from "../lib/hooks";
 import { fmtDate } from "../lib/format";
 import { PageHeader } from "../components/ui";
-import { isSeeded, seedDemo, DEMO_USERS, DEMO_PASSWORD } from "./seed";
+import { isSeeded, needsReset, seedDemo, DEMO_USERS, DEMO_PASSWORD } from "./seed";
 import { resetDemo, store } from "./core";
 import { invoke } from "./client-functions";
 
-export const IS_DEMO = import.meta.env.VITE_DEMO === "true";
+export const IS_DEMO = import.meta.env.MODE === "demo";
 
 /** Seeds the demo data on first visit before rendering the app. */
 export function DemoGate({ children }: { children: ReactNode }) {
@@ -23,6 +23,7 @@ export function DemoGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (ready) return;
+    if (needsReset()) { resetDemo().then(() => location.reload()); return; }
     seedDemo((s) => { setStep(s); setN((x) => x + 1); }).then(() => setReady(true)).catch((e) => { console.error(e); setError(String(e?.message ?? e)); });
   }, []);
   if (ready) return <>{children}</>;

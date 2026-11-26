@@ -6,6 +6,7 @@ import { IconSearch, IconPlus } from "@tabler/icons-react";
 import { db } from "../lib/firebase";
 import { useCollection } from "../lib/hooks";
 import { PageHeader, StatusBadge, Empty, Loading } from "../components/ui";
+import { DEFAULT_COUNTRY, countryOptions } from "../lib/countries";
 import { fmtDate, money, label, SOURCES } from "../lib/format";
 import { toastError } from "../lib/call";
 import { logAudit } from "../lib/audit";
@@ -16,7 +17,7 @@ export default function CustomersPage() {
   const [source, setSource] = useState<string | null>(null);
   const [codeStatus, setCodeStatus] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ name: "", email: "", phone: "", country: "", source: "manual" });
+  const [f, setF] = useState({ name: "", email: "", phone: "", country: DEFAULT_COUNTRY, source: "manual" });
   const nav = useNavigate();
   const customers = useCollection<any>(query(collection(db, "customers"), orderBy("createdAt", "desc"), limit(max)), [max]);
 
@@ -76,7 +77,7 @@ export default function CustomersPage() {
           <TextInput label="Name" value={f.name} onChange={(e) => setF({ ...f, name: e.currentTarget.value })} />
           <TextInput label="Email" value={f.email} onChange={(e) => setF({ ...f, email: e.currentTarget.value })} />
           <TextInput label="Phone" value={f.phone} onChange={(e) => setF({ ...f, phone: e.currentTarget.value })} />
-          <TextInput label="Country" value={f.country} onChange={(e) => setF({ ...f, country: e.currentTarget.value })} />
+          <Select label="Country" searchable data={countryOptions(f.country)} value={f.country || null} onChange={(v) => setF({ ...f, country: v ?? "" })} />
           <Select label="Source of purchase" value={f.source} allowDeselect={false} onChange={(v) => setF({ ...f, source: v! })} data={SOURCES.map((x) => ({ value: x, label: label(x) }))} />
           <Text size="xs" c="dimmed">Customers are normally created automatically from orders. Add one by hand for giveaways or manual sales.</Text>
           <Button onClick={create}>Add customer</Button>

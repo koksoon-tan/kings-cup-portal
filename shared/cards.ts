@@ -30,6 +30,19 @@ export const COUNTRIES: Record<string, string> = {
 };
 
 export interface TextBox { x: number; y: number; w: number; h: number } // percentages of card size
+/** Title styling. Any field left undefined follows the action text style (size defaults to 1.3x). */
+export interface TitleStyle {
+  fontId?: string | null;
+  fontFamily?: string;
+  color?: string;
+  sizePct?: number;
+  align?: "left" | "center" | "right";
+  bold?: boolean;
+  uppercase?: boolean;
+  strokeColor?: string;
+  strokeWidth?: number;
+}
+
 export interface TextStyle {
   fontId: string | null;
   fontFamily: string;
@@ -42,26 +55,9 @@ export interface TextStyle {
   strokeColor: string;
   strokeWidth: number;
   showTitle: boolean;
+  title?: TitleStyle;
   box: TextBox;
-  /** Optional separate look for the action title (defaults to the body font/colour). */
-  titleFontId?: string | null;
-  titleFontFamily?: string;
-  titleColor?: string;
 }
-
-/** What the player app does when a card of this rank is drawn (set per deck in the dashboard). */
-export type GameEffect = "rule" | "mate" | "master" | "cup";
-export const GAME_EFFECTS: Record<GameEffect, { label: string; help: string }> = {
-  rule: { label: "Make a rule", help: "Player types a rule; it stays on screen for the rest of the game" },
-  mate: { label: "Pick a mate", help: "Player picks a drinking mate" },
-  master: { label: "Becomes master", help: "Player holds a title (e.g. Question Master) until this rank is drawn again" },
-  cup: { label: "King's Cup", help: "Fills the cup; the 4th one overflows (and can end the game)" },
-};
-export const DEFAULT_EFFECTS: Partial<Record<string, GameEffect>> = { K: "cup" };
-
-/** Fonts bundled with both apps (self-hosted), plus common system fonts. */
-export const BUILTIN_FONTS = ["Rye", "Barlow Condensed"];
-export const SYSTEM_FONTS = ["Arial", "Helvetica", "Georgia", "Times New Roman", "Verdana", "Trebuchet MS", "Impact", "Courier New"];
 
 export const DEFAULT_STYLE: TextStyle = {
   fontId: null,
@@ -77,3 +73,17 @@ export const DEFAULT_STYLE: TextStyle = {
   showTitle: true,
   box: { x: 12, y: 62, w: 76, h: 26 },
 };
+
+/** What the player app does when a card of this rank is drawn (set on the Action text page). */
+export type GameEffect = "rule" | "mate" | "master" | "cup";
+export const GAME_EFFECTS: Record<GameEffect, { label: string; help: string }> = {
+  rule: { label: "Make a rule", help: "Player types a rule; it stays on screen for the rest of the game" },
+  mate: { label: "Pick a mate", help: "Player picks a drinking mate" },
+  master: { label: "Becomes master", help: "Player holds a title (e.g. Question Master) until this rank is drawn again" },
+  cup: { label: "King's Cup", help: "Fills the cup; the 4th one overflows (and can end the game)" },
+};
+export const DEFAULT_EFFECTS: Partial<Record<string, GameEffect>> = { K: "cup" };
+
+/** Fonts bundled with both apps (self-hosted), plus common system fonts. */
+export const BUILTIN_FONTS = ["Rye", "Barlow Condensed"];
+export const SYSTEM_FONTS = ["Arial", "Helvetica", "Georgia", "Times New Roman", "Verdana", "Trebuchet MS", "Impact", "Courier New"];

@@ -4,7 +4,7 @@ import { Routes, Route, NavLink as RouterLink, useLocation, Navigate } from "rea
 import { signOut } from "firebase/auth";
 import {
   IconLayoutDashboard, IconCards, IconPackage, IconShoppingCart, IconUsers, IconKey, IconBuilding,
-  IconSettings, IconUserShield, IconHistory, IconLogout, IconMail,
+  IconSettings, IconUserShield, IconMessage2, IconHistory, IconLogout, IconMail,
 } from "@tabler/icons-react";
 import { auth } from "./lib/firebase";
 import { useAuth } from "./lib/auth";
@@ -13,6 +13,7 @@ import { Loading } from "./components/ui";
 import { IS_DEMO, DemoBanner, DemoInboxPage } from "@demo";
 import LoginPage from "./pages/Login";
 import HomePage from "./pages/Home";
+import ActionsPage from "./pages/Actions";
 import DecksPage from "./pages/Decks";
 import DeckEditorPage from "./pages/DeckEditor";
 import InventoryPage from "./pages/Inventory";
@@ -33,6 +34,7 @@ import AuditPage from "./pages/Audit";
 
 const NAV: { to: string; label: string; icon: typeof IconCards; area: Area | null }[] = [
   { to: "/", label: "Dashboard", icon: IconLayoutDashboard, area: null },
+  { to: "/actions", label: "Action text", icon: IconMessage2, area: "decks" },
   { to: "/decks", label: "Deck designs", icon: IconCards, area: "decks" },
   { to: "/inventory", label: "Inventory", icon: IconPackage, area: "inventory" },
   { to: "/orders", label: "Orders", icon: IconShoppingCart, area: "orders" },
@@ -108,6 +110,7 @@ export default function App() {
       <AppShell.Main>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/actions" element={<Guard area="decks"><ActionsPage /></Guard>} />
           <Route path="/decks" element={<Guard area="decks"><DecksPage /></Guard>} />
           <Route path="/decks/:id" element={<Guard area="decks"><DeckEditorPage /></Guard>} />
           <Route path="/inventory" element={<Guard area="inventory"><InventoryPage /></Guard>} />

@@ -32,7 +32,7 @@ function client(name) {
   const auth = getAuth(app); connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   const db = fs.getFirestore(app); fs.connectFirestoreEmulator(db, "127.0.0.1", 8080);
   const st = getStorage(app); connectStorageEmulator(st, "127.0.0.1", 9199);
-  const fn = getFunctions(app, "asia-southeast1"); connectFunctionsEmulator(fn, "127.0.0.1", 5001);
+  const fn = getFunctions(app, "us-east1"); connectFunctionsEmulator(fn, "127.0.0.1", 5001);
   const call = async (name, data) => (await httpsCallable(fn, name, { timeout: 300000 })(data)).data;
   return { app, auth, db, st, call };
 }
@@ -197,9 +197,9 @@ const bad = new JSZip();
 keys.slice(0, 50).forEach((k) => bad.file(`${k}.png`, png));
 await uploadBytes(ref(sa.st, `decks/${deckRef.id}/uploads/2.zip`), await bad.generateAsync({ type: "uint8array" }), { contentType: "application/zip" });
 const deck2 = await wait(async () => { const d = (await aDb.doc(`decks/${deckRef.id}`).get()).data(); return d.upload?.zipPath?.endsWith("2.zip") && ["ready", "error"].includes(d.upload?.status) && d; }, "bad zip", 120000);
-assert.equal(deck2.upload.status, "error"); assert.match(deck2.upload.errors[0], /Missing 5 card\(s\): QC, KC, JK1, JK2, BACK/);
-assert.equal(deck2.artVersion, 1);
-ok(`incomplete zip rejected with clear error ("${deck2.upload.errors[0].slice(0, 45)}…"), existing art kept`);
+assert.equal(deck2.upload.status, "ready"); assert.match(deck2.upload.warnings.join(" "), /5 card\(s\) not included: QC, KC, JK1, JK2, BACK/);
+assert.equal(deck2.artVersion, 2); assert.equal(Object.keys(deck2.cards).length, 50);
+ok("partial zip accepted with a warning listing the 5 missing cards");
 await rejects(fs.updateDoc(fs.doc(sa.db, `decks/${deckRef.id}`), { cards: {} }), /permission|false for/i, "card art map can only be written by the processor");
 
 // ---------------------------------------------------------------- corporate
@@ -256,6 +256,8 @@ await signInWithCustomToken(pl.auth, (await pl.call("redeemSerialCode", { code: 
 const pub = await fs.getDocs(fs.query(fs.collection(pl.db, "decks"), fs.where("status", "==", "published")));
 assert.ok(pub.docs.some((d) => d.id === deckRef.id));
 await getBytes(ref(pl.st, art.gamePath));
+await fs.getDoc(fs.doc(pl.db, "settings/actions"));
+await rejects(fs.getDoc(fs.doc(pl.db, "settings/company")), /permission|false for/i, "player can read the global action text but no other settings");
 ok("player can list published decks and download card art");
 await rejects(fs.getDoc(fs.doc(pl.db, `customers/${o1.customerId}`)), /permission|false for/i, "player can't read another customer");
 await rejects(fs.updateDoc(fs.doc(pl.db, `customers/${po.customerId}`), { ownedDeckIds: ["x"] }), /permission|false for/i, "player can't give themselves decks");

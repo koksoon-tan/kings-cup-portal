@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
 import {
-  Breadcrumbs, Anchor, Text, Group, Button, SimpleGrid, Paper, Table, Stack, TextInput, Textarea, Badge, CopyButton, ActionIcon, Tooltip, Switch, Alert,
+  Breadcrumbs, Anchor, Text, Group, Button, SimpleGrid, Paper, Table, Stack, TextInput, Select, Textarea, Badge, CopyButton, ActionIcon, Tooltip, Switch, Alert,
 } from "@mantine/core";
 import { doc, collection, query, where, orderBy, updateDoc, serverTimestamp } from "firebase/firestore";
 import { IconCopy, IconCheck, IconKey } from "@tabler/icons-react";
@@ -10,6 +10,7 @@ import { useCollection, useDocument } from "../lib/hooks";
 import { useAuth } from "../lib/auth";
 import { canAccess } from "../lib/roles";
 import { PageHeader, Loading, Field, StatusBadge } from "../components/ui";
+import { countryOptions } from "../lib/countries";
 import { fmtDate, money, label } from "../lib/format";
 import { call, toastError, toastOk } from "../lib/call";
 import { logAudit } from "../lib/audit";
@@ -132,7 +133,7 @@ export default function CustomerDetailPage() {
             <TextInput label="Email" description="Changing this doesn't resend the code. Use Resend email after you save." value={f.email} onChange={(e) => setF({ ...f, email: e.currentTarget.value })} />
             <Group grow>
               <TextInput label="Phone" value={f.phone} onChange={(e) => setF({ ...f, phone: e.currentTarget.value })} />
-              <TextInput label="Country" value={f.country} onChange={(e) => setF({ ...f, country: e.currentTarget.value })} />
+              <Select label="Country" searchable data={countryOptions(f.country)} value={f.country || null} onChange={(v) => setF({ ...f, country: v ?? "" })} />
             </Group>
             <Textarea label="Notes" autosize value={f.notes} onChange={(e) => setF({ ...f, notes: e.currentTarget.value })} />
             <Switch label="Blocked from the app" checked={f.banned} onChange={(e) => setF({ ...f, banned: e.currentTarget.checked })} />

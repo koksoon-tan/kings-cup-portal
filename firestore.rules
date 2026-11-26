@@ -32,7 +32,8 @@ service cloud.firestore {
     }
 
     match /settings/{id} {
-      allow read: if isStaff();
+      // The player app needs the global action text (and its effects) to draw cards.
+      allow read: if isStaff() || (signedIn() && id == "actions");
       allow write: if can('settings');
     }
 

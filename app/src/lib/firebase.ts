@@ -16,7 +16,7 @@ export const app = initializeApp({
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const functions = getFunctions(app, env.VITE_FUNCTIONS_REGION || "asia-southeast1");
+export const functions = getFunctions(app, env.VITE_FUNCTIONS_REGION || "us-east1");
 
 if (env.VITE_USE_EMULATORS === "true") {
   const host = window.location.hostname;

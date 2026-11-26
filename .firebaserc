@@ -1,15 +1,15 @@
 {
   "projects": {
-    "default": "demo-kingscup"
+    "default": "kings-cup-portal"
   },
   "targets": {
-    "demo-kingscup": {
+    "kings-cup-portal": {
       "hosting": {
         "admin": [
-          "demo-kingscup-admin"
+          "kings-cup-portal"
         ],
         "play": [
-          "demo-kingscup-play"
+          "kings-cup-play"
         ]
       }
     }

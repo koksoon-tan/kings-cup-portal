@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LANGUAGES } from "../../../shared/cards";
-import { Deck, effectsOf } from "../lib/decks";
+import { LibraryDeck, effectsOf } from "../lib/decks";
 import { createGame, EndMode, Game, MAX_PLAYERS, MIN_PLAYERS, PLAYER_COLORS } from "../lib/game";
 import { getPrefs, setPrefs } from "../lib/prefs";
 import { sfx } from "../lib/sound";
@@ -12,7 +12,7 @@ const load = <T,>(k: string, d: T): T => { try { return { ...d, ...JSON.parse(lo
 const loadNames = (): string[] => { try { const v = JSON.parse(localStorage.getItem(NAMES_KEY) ?? "[]"); return Array.isArray(v) ? v : []; } catch { return []; } };
 const store = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* blocked */ } };
 
-export function Setup({ nav, deck, onStart, presetNames }: { nav: Nav; deck: Deck; onStart: (g: Game) => void; presetNames?: string[] }) {
+export function Setup({ nav, deck, onStart, presetNames }: { nav: Nav; deck: LibraryDeck; onStart: (g: Game) => void; presetNames?: string[] }) {
   const saved = load(OPTS_KEY, { count: 4, jokers: true, endMode: "last" as EndMode });
   const [count, setCount] = useState<number>(presetNames?.length ?? saved.count);
   const [names, setNames] = useState<string[]>(() => { const n = presetNames ?? loadNames(); return [...n, ...Array(MAX_PLAYERS).fill("")].slice(0, MAX_PLAYERS); });
@@ -26,9 +26,12 @@ export function Setup({ nav, deck, onStart, presetNames }: { nav: Nav; deck: Dec
     const list = names.slice(0, count);
     store(NAMES_KEY, names.filter((_, i) => i < count)); store(OPTS_KEY, { count, jokers, endMode }); setPrefs({ lang });
     sfx.fanfare();
-    onStart(createGame({ deckId: deck.id, artVersion: deck.artVersion ?? 0, lang, names: list, jokers, endMode, effects: effectsOf(deck) }));
+    onStart(createGame({ deckId: deck.id, artVersion: deck.artVersion ?? 0, lang, names: list, jokers, endMode: hasCup ? endMode : "last", effects: effectsOf(deck), available: deck.available }));
   };
-  const hasCup = Object.values(effectsOf(deck)).includes("cup");
+  const cupCards = deck.available.filter((k) => effectsOf(deck)[k.startsWith("JK") ? "JOKER" : k.slice(0, -1)] === "cup").length;
+  const hasCup = cupCards >= 4;
+  const deckSize = deck.available.filter((k) => jokers || !k.startsWith("JK")).length;
+  const hasJokers = deck.available.some((k) => k.startsWith("JK"));
 
   return (
     <section className="screen">
@@ -60,8 +63,10 @@ export function Setup({ nav, deck, onStart, presetNames }: { nav: Nav; deck: Dec
                 {langs.map((l) => <option key={l} value={l}>{LANGUAGES[l] ?? l}</option>)}
               </select></div>
           )}
-          <div className="opt"><div><div className="t">Include jokers</div><div className="d">{jokers ? 54 : 52} cards in the deck</div></div>
-            <Switch checked={jokers} onChange={(v) => { setJokers(v); sfx.tap(); }} label="Include jokers" /></div>
+          {hasJokers && (
+            <div className="opt"><div><div className="t">Include jokers</div><div className="d">{deckSize} cards in the deck</div></div>
+              <Switch checked={jokers} onChange={(v) => { setJokers(v); sfx.tap(); }} label="Include jokers" /></div>
+          )}
           {hasCup && (
             <div className="opt" style={{ display: "block" }}><div className="t">The game ends…</div>
               <div className="seg">

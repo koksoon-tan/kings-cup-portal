@@ -93,3 +93,11 @@ describe("ending", () => {
     expect(again.players).toEqual(g.players); expect(again.status).toBe("playing"); expect(again.idx).toBe(0);
   });
 });
+
+describe("partial decks", () => {
+  it("only deals cards that have art", () => {
+    const g = createGame({ ...base, available: ["AS", "2D", "KH", "JK1"] }, seq());
+    expect([...g.order].sort()).toEqual(["2D", "AS", "JK1", "KH"]);
+    expect(createGame({ ...base, jokers: false, available: ["AS", "JK1"] }).order).toEqual(["AS"]);
+  });
+});
