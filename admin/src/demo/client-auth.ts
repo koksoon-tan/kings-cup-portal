@@ -32,5 +32,14 @@ export async function signInWithEmailAndPassword(_a: unknown, email: string, pas
   authBus.emit();
   return { user: auth.currentUser };
 }
+/** Demo stand-in for custom-token sign-in (tokens come from the demo createCustomToken). */
+export async function signInWithCustomToken(_a: unknown, token: string) {
+  await new Promise((r) => setTimeout(r, 150));
+  const uid = token.split(".")[1];
+  if (!uid || !users[uid] || users[uid].disabled) throw Object.assign(new Error("auth/invalid-custom-token"), { code: "auth/invalid-custom-token" });
+  session.uid = uid;
+  authBus.emit();
+  return { user: auth.currentUser };
+}
 export async function signOut() { session.uid = null; authBus.emit(); }
 export async function sendPasswordResetEmail() { /* demo: nothing to send */ }

@@ -63,6 +63,7 @@ let queue: Promise<unknown> = Promise.resolve();
 const db = {
   collection: (p: string) => new CollRef(p),
   doc: (p: string) => new DocRef(p),
+  getAll: async (...refs: DocRef[]) => refs.map((r) => new DocSnap(r, store.get(r.path))),
   runTransaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
     const run = queue.then(async () => {
       const tx = new Tx();

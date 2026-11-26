@@ -17,7 +17,8 @@ import { PageHeader, StatusBadge, Loading } from "../components/ui";
 import {
   ACTION_KEYS, CARD_KEYS, RANK_NAMES, LANGUAGES, COUNTRIES, DEFAULT_STYLE, TextStyle, TextBox, cardLabel, SUIT_SYMBOLS,
 } from "../lib/cards";
-import { SYSTEM_FONTS, FontDoc, ensureFont, loadImage, drawCard, contentFor } from "../lib/render";
+import { SYSTEM_FONTS, BUILTIN_FONTS, FontDoc, ensureFont, loadImage, drawCard, contentFor } from "../lib/render";
+import { GAME_EFFECTS, DEFAULT_EFFECTS, GameEffect } from "../lib/cards";
 import { logAudit } from "../lib/audit";
 import { toastError, toastOk } from "../lib/call";
 import { fmtDate, toDate } from "../lib/format";
@@ -26,7 +27,7 @@ import { askConfirm } from "../lib/confirm";
 
 const EDITABLE = [
   "name", "code", "description", "status", "languages", "defaultLanguage", "countries", "appAccess", "appPrice",
-  "expiryDate", "actions", "cardOverrides", "textStyle", "designer", "corporateId",
+  "expiryDate", "actions", "cardOverrides", "textStyle", "designer", "corporateId", "effects",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -46,8 +47,8 @@ function CardCanvas({ deck, cardKey, lang, fonts, onBox, showBox }: {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const font = fonts.find((f) => f.id === style.fontId);
-      await ensureFont(font).catch(() => undefined);
+      await Promise.all([style.fontId, style.titleFontId].map((id) => ensureFont(fonts.find((f) => f.id === id)).catch(() => undefined)));
+      await document.fonts.load(`bold 20px "${style.titleFontFamily || style.fontFamily}"`).catch(() => undefined);
       const img = url ? await loadImage(url).catch(() => null) : null;
       if (!alive || !canvasRef.current) return;
       const [w, h] = (deck.cardSize ?? "750x1050").split("x").map(Number);
@@ -197,7 +198,7 @@ export default function DeckEditorPage() {
     if (!deck.cards || CARD_KEYS.some((k) => !deck.cards[k])) return toastError({ message: "Upload the card art first." });
     setExporting(0);
     try {
-      await ensureFont(fontsQ.data.find((f) => f.id === deck.textStyle.fontId));
+      await Promise.all([deck.textStyle.fontId, deck.textStyle.titleFontId].map((id) => ensureFont(fontsQ.data.find((f) => f.id === id))));
       const zip = new JSZip();
       let i = 0;
       for (const key of CARD_KEYS) {
@@ -228,9 +229,12 @@ export default function DeckEditorPage() {
   const filled = ACTION_KEYS.filter((r) => deck.actions?.[r]?.[lang]?.text).length;
   const fontOptions = [
     { group: "Uploaded fonts", items: fontsQ.data.map((f) => ({ value: `id:${f.id}`, label: f.name })) },
+    { group: "Built-in fonts", items: BUILTIN_FONTS.map((f) => ({ value: `sys:${f}`, label: f })) },
     { group: "System fonts", items: SYSTEM_FONTS.map((f) => ({ value: `sys:${f}`, label: f })) },
   ];
   const fontValue = deck.textStyle.fontId ? `id:${deck.textStyle.fontId}` : `sys:${deck.textStyle.fontFamily}`;
+  const titleFontValue = deck.textStyle.titleFontId ? `id:${deck.textStyle.titleFontId}` : deck.textStyle.titleFontFamily ? `sys:${deck.textStyle.titleFontFamily}` : "same";
+  const effectOptions = [{ value: "none", label: "No effect" }, ...Object.entries(GAME_EFFECTS).map(([value, e]) => ({ value, label: e.label }))];
 
   return (
     <>
@@ -319,13 +323,19 @@ export default function DeckEditorPage() {
           </Group>
           <Table.ScrollContainer minWidth={640}>
             <Table verticalSpacing="xs">
-              <Table.Thead><Table.Tr><Table.Th w={90}>Card</Table.Th><Table.Th w={220}>Title</Table.Th><Table.Th>Action text</Table.Th></Table.Tr></Table.Thead>
+              <Table.Thead><Table.Tr><Table.Th w={90}>Card</Table.Th><Table.Th w={220}>Title</Table.Th><Table.Th>Action text</Table.Th><Table.Th w={170}>In the player app</Table.Th></Table.Tr></Table.Thead>
               <Table.Tbody>
                 {ACTION_KEYS.map((r) => (
                   <Table.Tr key={r}>
                     <Table.Td><Text fw={700}>{r === "JOKER" ? "Joker" : r}</Text><Text size="xs" c="dimmed">{RANK_NAMES[r] ?? ""}</Text></Table.Td>
                     <Table.Td><TextInput placeholder="e.g. Waterfall" value={deck.actions?.[r]?.[lang]?.title ?? ""} onChange={(e) => setAction(r, "title", e.currentTarget.value)} /></Table.Td>
                     <Table.Td><Textarea autosize minRows={1} placeholder="What players do when this card is drawn" value={deck.actions?.[r]?.[lang]?.text ?? ""} onChange={(e) => setAction(r, "text", e.currentTarget.value)} /></Table.Td>
+                    <Table.Td>
+                      <Tooltip label={GAME_EFFECTS[(deck.effects ?? DEFAULT_EFFECTS)[r] as GameEffect]?.help ?? "The card is just shown"} withinPortal multiline w={240}>
+                        <Select size="xs" data={effectOptions} allowDeselect={false} value={(deck.effects ?? DEFAULT_EFFECTS)[r] ?? "none"}
+                          onChange={(v) => { const e = { ...(deck.effects ?? DEFAULT_EFFECTS) }; if (!v || v === "none") delete e[r]; else e[r] = v; set({ effects: e }); }} />
+                      </Tooltip>
+                    </Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -346,6 +356,12 @@ export default function DeckEditorPage() {
                     <FileButton onChange={uploadFont} accept=".ttf,.otf,.woff,.woff2">
                       {(props) => <Button variant="light" {...props}>Upload font file</Button>}
                     </FileButton>
+                  </Group>
+                  <Group grow mt="sm" align="flex-end">
+                    <Select label="Title font" description="Optional different font for the action title" searchable allowDeselect={false}
+                      data={[{ group: "", items: [{ value: "same", label: "Same as text" }] }, ...fontOptions]} value={titleFontValue}
+                      onChange={(v) => v && (v === "same" ? setStyle({ titleFontId: null, titleFontFamily: "" }) : v.startsWith("id:") ? setStyle({ titleFontId: v.slice(3), titleFontFamily: "" }) : setStyle({ titleFontId: null, titleFontFamily: v.slice(4) }))} />
+                    <ColorInput label="Title colour" value={deck.textStyle.titleColor || deck.textStyle.color} onChange={(v) => setStyle({ titleColor: v })} />
                   </Group>
                   <Group grow mt="sm">
                     <ColorInput label="Text colour" value={deck.textStyle.color} onChange={(v) => setStyle({ color: v })} />

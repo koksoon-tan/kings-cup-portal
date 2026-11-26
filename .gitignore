@@ -7,3 +7,4 @@ admin/.env.local
 tests/sample-invoice.pdf
 *.tsbuildinfo
 admin/dist-demo/
+app/dist-demo/

@@ -1,5 +1,17 @@
 {
   "projects": {
     "default": "demo-kingscup"
+  },
+  "targets": {
+    "demo-kingscup": {
+      "hosting": {
+        "admin": [
+          "demo-kingscup-admin"
+        ],
+        "play": [
+          "demo-kingscup-play"
+        ]
+      }
+    }
   }
 }

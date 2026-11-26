@@ -14,6 +14,32 @@ import { fmtDate, money, label } from "../lib/format";
 import { call, toastError, toastOk } from "../lib/call";
 import { logAudit } from "../lib/audit";
 import { CodeActions } from "../components/CodeActions";
+import { MultiSelect } from "@mantine/core";
+
+function DecksOwned({ customer }: { customer: any }) {
+  const decks = useCollection<any>(collection(db, "decks"));
+  const [val, setVal] = useState<string[]>(customer.ownedDeckIds ?? []);
+  useEffect(() => setVal(customer.ownedDeckIds ?? []), [JSON.stringify(customer.ownedDeckIds ?? [])]);
+  const changed = JSON.stringify([...val].sort()) !== JSON.stringify([...(customer.ownedDeckIds ?? [])].sort());
+  const save = async () => {
+    try {
+      await updateDoc(doc(db, "customers", customer.id), { ownedDeckIds: val, updatedAt: serverTimestamp() });
+      logAudit("customer.decks", "customers", customer.id, { ownedDeckIds: val });
+      toastOk("Decks updated — the player sees them next time they open the app");
+    } catch (e) { toastError(e); }
+  };
+  return (
+    <Paper withBorder p="md" mb="lg">
+      <Text fw={600}>Decks in the player app</Text>
+      <Text size="sm" c="dimmed" mb="sm">Added automatically when an order for a deck's SKU is paid. Add or remove decks here for gifts, giveaways or support. Free decks are always available.</Text>
+      <Group align="flex-end">
+        <MultiSelect style={{ flex: 1 }} searchable placeholder="No decks" value={val} onChange={setVal}
+          data={decks.data.map((d) => ({ value: d.id, label: `${d.name}${d.status !== "published" ? ` (${d.status})` : ""}` }))} />
+        <Button onClick={save} disabled={!changed}>Save</Button>
+      </Group>
+    </Paper>
+  );
+}
 
 export default function CustomerDetailPage() {
   const { id } = useParams();
@@ -95,6 +121,8 @@ export default function CustomerDetailPage() {
           )}
         </Paper>
       )}
+
+      <DecksOwned customer={c} />
 
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Paper withBorder p="md">

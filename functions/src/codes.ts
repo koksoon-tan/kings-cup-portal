@@ -46,6 +46,7 @@ const ACTIVE = ["generated", "sent"];
 export const DEFAULT_EMAIL = {
   appName: "Kings Cup",
   codeSubject: "Your {{appName}} app access code",
+  reissueSubject: "Your new {{appName}} access code",
   codeHtml:
     `<p>Hi {{name}},</p>
 <p>Thanks for buying {{appName}}! Here is your personal code to unlock the mobile app:</p>
@@ -65,7 +66,7 @@ function render(tpl: string, vars: Record<string, string>, html: boolean) {
   });
 }
 
-interface EmailTpl { appName: string; codeSubject: string; codeHtml: string }
+interface EmailTpl { appName: string; codeSubject: string; reissueSubject: string; codeHtml: string }
 
 async function readEmailTemplate(tx: Transaction): Promise<EmailTpl> {
   const snap = await tx.get(db.collection("settings").doc("email"));
@@ -74,7 +75,7 @@ async function readEmailTemplate(tx: Transaction): Promise<EmailTpl> {
 
 function queueCodeEmail(
   tx: Transaction, tpl: EmailTpl, codeId: string, customerId: string,
-  to: string, name: string, code: string, expiresAt: Date | null,
+  to: string, name: string, code: string, expiresAt: Date | null, reissue = false,
 ) {
   const expiryLine = expiresAt ? ` It expires on ${expiresAt.toISOString().slice(0, 10)}.` : "";
   const vars = { name: name || "there", code, appName: tpl.appName, expiryLine };
@@ -84,7 +85,7 @@ function queueCodeEmail(
   tx.set(mailRef, {
     to,
     message: {
-      subject: render(tpl.codeSubject, vars, false),
+      subject: render(reissue ? tpl.reissueSubject : tpl.codeSubject, vars, false),
       html,
       text: html.replace(/<br\s*\/?>/g, "\n").replace(/<\/p>/g, "\n\n").replace(/<[^>]+>/g, "").trim(),
     },
@@ -101,7 +102,7 @@ function queueCodeEmail(
  */
 export async function issueCode(
   customerId: string,
-  opts: { orderId?: string; actor: Actor | null; sendEmail: boolean; force?: boolean; skipIfHasCode?: boolean },
+  opts: { orderId?: string; actor: Actor | null; sendEmail: boolean; force?: boolean; skipIfHasCode?: boolean; reason?: string },
 ): Promise<{ codeId: string; code: string } | null> {
   const settings = await getGeneralSettings();
   return db.runTransaction(async (tx) => {
@@ -135,7 +136,7 @@ export async function issueCode(
     const send = opts.sendEmail && !!email;
 
     let mailId: string | null = null;
-    if (send) mailId = queueCodeEmail(tx, tpl, codeRef.id, customerId, email, c.name ?? "", code, expiresAt);
+    if (send) mailId = queueCodeEmail(tx, tpl, codeRef.id, customerId, email, c.name ?? "", code, expiresAt, opts.reason === "self-service");
 
     tx.set(codeRef, {
       code,
@@ -149,6 +150,7 @@ export async function issueCode(
       emailStatus: send ? "queued" : "none",
       mailId,
       sendCount: send ? 1 : 0,
+      reason: opts.reason ?? (opts.orderId ? "order" : "manual"),
       generatedAt: FieldValue.serverTimestamp(),
       generatedBy: opts.actor ? { uid: opts.actor.uid, email: opts.actor.email } : { uid: "system", email: "system" },
       sentAt: send ? FieldValue.serverTimestamp() : null,
@@ -282,6 +284,10 @@ export const redeemSerialCode = onCall({ region: REGION, enforceAppCheck: false 
   };
 
   const pre = await ref.get();
+  if (pre.exists) {
+    const cust = await db.collection("customers").doc(pre.data()!.customerId).get();
+    if (cust.data()?.banned) return fail("This account has been blocked. Contact support.");
+  }
   if (!pre.exists) return fail("Invalid code.");
   const c = pre.data()!;
   if (c.status === "redeemed") return fail("This code has already been used.");
@@ -347,4 +353,63 @@ export const expireSerialCodes = onSchedule({ schedule: "every day 03:00", timeZ
   });
   await batch.commit();
   logger.info(`Expired ${snap.size} codes`);
+});
+
+// ---------------------------------------------------------------------------
+// Player app: lost code → new code by email
+// ---------------------------------------------------------------------------
+
+/** Counts calls per key per hour; throws once `max` is exceeded. */
+async function limit(key: string, max: number) {
+  const ref = db.collection("rateLimits").doc(createHash("sha256").update(key).digest("hex"));
+  const count = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const now = Date.now();
+    let { count = 0, windowStart = now } = (snap.data() ?? {}) as { count?: number; windowStart?: number };
+    if (now - windowStart > 3600_000) { count = 0; windowStart = now; }
+    count += 1;
+    tx.set(ref, { count, windowStart });
+    return count;
+  });
+  if (count > max) throw new HttpsError("resource-exhausted", "Too many requests. Try again in an hour.");
+}
+
+/**
+ * requestAccessCode({ email }) – called by the player app when someone lost their code or has a new phone.
+ * If the email belongs to a customer, any unused code is revoked and a new one is emailed.
+ * Always answers the same way so the form can't be used to discover who is a customer.
+ */
+export const requestAccessCode = onCall({ region: REGION, enforceAppCheck: false }, async (req) => {
+  const raw = String(req.data?.email ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) || raw.length > 200) throw new HttpsError("invalid-argument", "Enter a valid email address.");
+  await limit(`ip:${req.rawRequest.ip ?? "unknown"}`, 10);
+  await limit(`email:${raw}`, 3);
+  const q = await db.collection("customers").where("email", "==", raw).limit(1).get();
+  if (q.empty || q.docs[0].data().banned) return { ok: true };
+  const cust = q.docs[0];
+  const current = cust.data().currentCodeId as string | null;
+  if (current) {
+    await db.runTransaction(async (tx) => {
+      const ref = db.collection("serialCodes").doc(current);
+      const snap = await tx.get(ref);
+      if (snap.exists && ACTIVE.includes(snap.data()!.status)) {
+        tx.update(ref, { status: "revoked", revokedAt: FieldValue.serverTimestamp(), revokedReason: "Replaced by a new code the customer requested" });
+      }
+    });
+  }
+  await issueCode(cust.id, { actor: null, sendEmail: true, force: true, reason: "self-service" });
+  return { ok: true };
+});
+
+/** Blocking a customer in the dashboard signs them out of the app everywhere. */
+export const onCustomerBlocked = onDocumentUpdated({ document: "customers/{customerId}", region: REGION }, async (event) => {
+  const before = event.data?.before.data(), after = event.data?.after.data();
+  if (!after?.appUid || !!before?.banned === !!after.banned) return;
+  try {
+    await auth.updateUser(after.appUid, { disabled: !!after.banned });
+    if (after.banned) await auth.revokeRefreshTokens(after.appUid);
+    await audit(null, after.banned ? "customer.blocked" : "customer.unblocked", "customers", event.params.customerId, {});
+  } catch (e) {
+    logger.warn("Could not update app account", e);
+  }
 });

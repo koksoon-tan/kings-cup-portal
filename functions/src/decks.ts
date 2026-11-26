@@ -19,6 +19,8 @@ export const CARD_KEYS = [...SUITS.flatMap((s) => RANKS.map((r) => `${r}${s}`)),
 
 const MIN_DPI = 300;
 const PREVIEW_WIDTH = 600;
+/** Size used by the player app (sharp on tablets, small enough to cache offline). */
+const GAME_WIDTH = 900;
 
 export const processDeckZip = onObjectFinalized(
   { region: REGION, memory: "2GiB", timeoutSeconds: 540, cpu: 2 },
@@ -86,12 +88,15 @@ export const processDeckZip = onObjectFinalized(
       await Promise.all([...images.entries()].map(async ([key, img]) => {
         const artPath = `decks/${deckId}/art/v${version}/${key}.${img.ext}`;
         const previewPath = `decks/${deckId}/art/v${version}/preview/${key}.webp`;
+        const gamePath = `decks/${deckId}/art/v${version}/game/${key}.webp`;
         const preview = await sharp(img.data).resize({ width: PREVIEW_WIDTH }).webp({ quality: 85 }).toBuffer();
+        const game = await sharp(img.data).resize({ width: Math.min(GAME_WIDTH, img.width) }).webp({ quality: 82 }).toBuffer();
         await Promise.all([
           bucket.file(artPath).save(img.data, { contentType: img.ext === "jpg" ? "image/jpeg" : `image/${img.ext}` }),
           bucket.file(previewPath).save(preview, { contentType: "image/webp", metadata: { cacheControl: "public, max-age=31536000" } }),
+          bucket.file(gamePath).save(game, { contentType: "image/webp", metadata: { cacheControl: "public, max-age=31536000" } }),
         ]);
-        cards[key] = { path: artPath, previewPath, width: img.width, height: img.height, density: img.density || null };
+        cards[key] = { path: artPath, previewPath, gamePath, width: img.width, height: img.height, density: img.density || null };
       }));
 
       await deckRef.update({

@@ -238,6 +238,53 @@ ok("two part-payments → partially_paid → paid");
 const fs_ = await import("fs");
 fs_.writeFileSync(new URL("./sample-invoice.pdf", import.meta.url), pdf);
 
+// ---------------------------------------------------------------- player app
+await fs.updateDoc(fs.doc(sa.db, `decks/${deckRef.id}`), { status: "published", appAccess: "purchase", effects: { K: "cup" } });
+await fs.updateDoc(fs.doc(ops.db, `inventory/${SKU}`), { deckId: deckRef.id, allocation: {} });
+const art = (await aDb.doc(`decks/${deckRef.id}`).get()).data().cards.AS;
+assert.ok(art.gamePath, "game-sized image path");
+assert.equal((await sharp(Buffer.from(await getBytes(ref(sa.st, art.gamePath)))).metadata()).width, 750);
+ok("game-sized card images generated (min(900px, art width))");
+const playerEmail = email("player");
+const po = await ops.call("createOrder", { source: "website", status: "paid", customer: { name: "Pat Player", email: playerEmail }, items: [{ sku: SKU, qty: 1, unitPrice: 79 }] });
+let pc = (await aDb.doc(`customers/${po.customerId}`).get()).data();
+assert.deepEqual(pc.ownedDeckIds, [deckRef.id]);
+ok("paid order adds the SKU's deck to the player's library");
+const pl = client("player-app");
+const firstCode = (await aDb.doc(`serialCodes/${pc.currentCodeId}`).get()).data().code;
+await signInWithCustomToken(pl.auth, (await pl.call("redeemSerialCode", { code: firstCode, device: "test" })).token);
+const pub = await fs.getDocs(fs.query(fs.collection(pl.db, "decks"), fs.where("status", "==", "published")));
+assert.ok(pub.docs.some((d) => d.id === deckRef.id));
+await getBytes(ref(pl.st, art.gamePath));
+ok("player can list published decks and download card art");
+await rejects(fs.getDoc(fs.doc(pl.db, `customers/${o1.customerId}`)), /permission|false for/i, "player can't read another customer");
+await rejects(fs.updateDoc(fs.doc(pl.db, `customers/${po.customerId}`), { ownedDeckIds: ["x"] }), /permission|false for/i, "player can't give themselves decks");
+await signOut(pl.auth);
+// lost code → new code by email
+const before = (await aDb.collection("mail").where("to", "==", playerEmail).get()).size;
+await pl.call("requestAccessCode", { email: playerEmail.toUpperCase() });
+pc = (await aDb.doc(`customers/${po.customerId}`).get()).data();
+const newCode = (await aDb.doc(`serialCodes/${pc.currentCodeId}`).get()).data();
+assert.equal(newCode.reason, "self-service"); assert.equal(newCode.status, "sent");
+const mails = (await aDb.collection("mail").where("to", "==", playerEmail).get()).docs.map((d) => d.data());
+assert.equal(mails.length, before + 1); assert.ok(mails.some((m) => /new/i.test(m.message.subject) && m.message.html.includes(newCode.code)));
+ok("lost-code request emails a fresh one-time code");
+const again = await pl.call("redeemSerialCode", { code: newCode.code, device: "new phone" });
+await signInWithCustomToken(pl.auth, again.token);
+assert.equal(pl.auth.currentUser.uid, `cust_${po.customerId}`);
+ok("new code signs into the same player account (decks follow them)");
+await signOut(pl.auth);
+const unknown = await pl.call("requestAccessCode", { email: email("nobody") });
+assert.deepEqual(unknown, { ok: true });
+ok("unknown email gets the same answer (no customer lookup leak)");
+await pl.call("requestAccessCode", { email: playerEmail }); await pl.call("requestAccessCode", { email: playerEmail });
+await rejects(pl.call("requestAccessCode", { email: playerEmail }), /Too many/, "lost-code requests are rate-limited per email");
+// block
+const spare = (await aDb.doc(`customers/${po.customerId}`).get()).data().currentCodeId;
+await fs.updateDoc(fs.doc(sa.db, `customers/${po.customerId}`), { banned: true });
+await wait(async () => (await aAuth.getUser(`cust_${po.customerId}`)).disabled, "player disabled");
+await rejects(pl.call("redeemSerialCode", { code: (await aDb.doc(`serialCodes/${spare}`).get()).data().code }), /blocked/, "blocked player can't sign in, account disabled");
+
 // ---------------------------------------------------------------- audit + role removal
 const audits = await aDb.collection("auditLogs").get();
 ok(`${audits.size} audit log entries written`);
@@ -246,6 +293,6 @@ await sa.call("setStaffRole", { uid: opsUser.uid, role: null });
 assert.equal((await aAuth.getUser(opsUser.uid)).disabled, true);
 ok("superadmin removes ops access (account disabled, tokens revoked)");
 
-for (const c of [sa, ops, sales, app]) await deleteApp(c.app);
+for (const c of [sa, ops, sales, app, pl]) await deleteApp(c.app);
 console.log(`\nAll ${n} checks passed.`);
 process.exit(0);

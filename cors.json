@@ -1,7 +1,16 @@
 [
   {
-    "origin": ["http://localhost:5173", "https://YOUR-PROJECT-ID.web.app", "https://YOUR-PROJECT-ID.firebaseapp.com"],
-    "method": ["GET"],
+    "origin": [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://YOUR-ADMIN-SITE.web.app",
+      "https://YOUR-PLAY-SITE.web.app",
+      "https://play.YOUR-DOMAIN.com"
+    ],
+    "method": [
+      "GET",
+      "HEAD"
+    ],
     "maxAgeSeconds": 3600
   }
 ]

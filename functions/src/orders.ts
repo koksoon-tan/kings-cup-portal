@@ -192,8 +192,21 @@ async function createOrderTx(o: NewOrder, actor: Actor | null): Promise<{ orderI
   });
 }
 
+/** Adds the decks linked to an order's SKUs to the customer's library in the player app. */
+async function grantDecks(customerId: string, orderId: string) {
+  const order = (await db.collection("orders").doc(orderId).get()).data();
+  if (!order) return;
+  const skus = [...new Set((order.items as Line[]).map((l) => l.sku))];
+  const invs = await db.getAll(...skus.map((s) => db.collection("inventory").doc(s)));
+  const deckIds = [...new Set(invs.map((d) => d.data()?.deckId).filter(Boolean))] as string[];
+  if (deckIds.length) {
+    await db.collection("customers").doc(customerId).update({ ownedDeckIds: FieldValue.arrayUnion(...deckIds) });
+  }
+}
+
 async function maybeIssueCode(customerId: string, orderId: string, status: Status, src: Source, actor: Actor | null) {
   if (!customerId || !PAID_LIKE.includes(status) || src === "corporate") return;
+  try { await grantDecks(customerId, orderId); } catch (e) { logger.warn("Deck grant failed", { customerId, orderId, e }); }
   const settings = await getGeneralSettings();
   if (!settings.autoIssueCodeOnPaid) return;
   try {

@@ -1,12 +1,15 @@
-# Kings Cup — Admin dashboard & backend
+# Kings Cup — Admin dashboard, player app & backend
 
-This repo holds the admin side of the Kings Cup business: deck designs, inventory, orders from every sales channel, customers, app serial codes, and corporate (B2B) accounts. It runs on Firebase. The mobile app isn't built yet, but the endpoint it needs to redeem codes is already here.
+This repo holds the Kings Cup business on Firebase: the staff dashboard (deck designs, inventory, orders from every sales channel, customers, access codes, corporate accounts) and the player web app that people use to play their decks.
 
 ```
-admin/       React + Vite + Mantine dashboard  → Firebase Hosting
-functions/   Cloud Functions (TypeScript)       → business logic that must be trusted
-firestore.rules / storage.rules                 → per-role security
-tests/emulator-e2e.mjs                          → 45-check end-to-end test on the emulators
+admin/       Staff dashboard (React + Vite + Mantine)   → Firebase Hosting site "admin"
+app/         Player web app (React + Vite, installable)  → Firebase Hosting site "play"
+shared/      Card definitions + card renderer used by both apps
+functions/   Cloud Functions (TypeScript)                → business logic that must be trusted
+firestore.rules / storage.rules                          → per-role security
+tests/emulator-e2e.mjs                                   → 55-check end-to-end test on the emulators
+app/src/lib/game.test.ts                                 → game rules unit tests (npm test in app/)
 ```
 
 ## What's in it
@@ -75,15 +78,18 @@ node tests/emulator-e2e.mjs
 
    The functions write the email to `mail/`. The extension sends it and reports delivery back, and the code's email status updates to *delivered* or *error* automatically.
 7. **Allow custom tokens** (needed by `redeemSerialCode`): in Google Cloud console → IAM, give the **App Engine default / Compute default service account** that runs your functions the role **Service Account Token Creator**.
-8. **Bucket CORS** (needed for print export, which reads the full-resolution art in the browser): edit `cors.json` with your hosting domains, then
+8. **Bucket CORS** (needed for the dashboard's print export and the player app's offline download): edit `cors.json` with both hosting domains, then
    ```bash
    gsutil cors set cors.json gs://YOUR-BUCKET
    ```
-9. Deploy everything:
+9. Create two Hosting sites (Firebase console → Hosting → Add another site), e.g. `kingscup-admin` and `kingscup-play`, then link them and deploy:
    ```bash
-   cd admin && npm run build && cd ..
+   firebase target:apply hosting admin kingscup-admin
+   firebase target:apply hosting play kingscup-play
+   (cd admin && npm run build) && (cd app && cp ../admin/.env.local .env.local && npm run build)
    firebase deploy
    ```
+   You can connect your own domains (e.g. `admin.yourdomain.com`, `play.yourdomain.com`) under Hosting → Add custom domain.
 10. Create the first superadmin (uses your own Google login):
     ```bash
     gcloud auth application-default login
@@ -100,19 +106,26 @@ node tests/emulator-e2e.mjs
 4. Ship: open an order, click **Mark shipped**, and enter the tracking number. Stock is deducted.
 5. **Corporate**: add a lead → **Record sample** → create a corporate order → upload design and proof → record the client's approval → deposit invoice → production → **Stock in** the corporate SKU → ship (stock deducted) → balance invoice → paid.
 
-## 4. Connecting the mobile app later
+## 4. Player web app (`app/`)
 
-```ts
-// Customer types the code from their email
-const { data } = await httpsCallable(functions, "redeemSerialCode")({ code, device: "iPhone 16 / iOS 26" });
-await signInWithCustomToken(auth, data.token);        // uid = "cust_<customerId>", claim customerId
-// Then ask them to link a permanent login so a new phone still works:
-await linkWithCredential(auth.currentUser, googleOrAppleOrEmailCredential);
+**Flow:** splash → enter the one-time access code → deck library → game setup → play → summary.
+
+- **Login:** the player types the code from their email (`redeemSerialCode`). The code is used up, and Firebase keeps them signed in on that device indefinitely. Every code for a customer signs into the same account (`cust_<customerId>`), so decks follow them to a new phone.
+- **Lost code / new phone:** "Lost your code?" asks for their email and calls `requestAccessCode`. If it matches a customer, any unused code is cancelled and a new one is emailed. The answer is the same for unknown emails, and requests are limited to 3 an hour per email (10 per IP).
+- **Blocking:** ticking "Blocked from the app" on a customer disables their app account and signs them out everywhere.
+- **Deck library:** published decks that are free, or that the customer owns. Ownership (`customers.ownedDeckIds`) is added automatically when an order for an SKU linked to the deck is paid. Staff can also add or remove decks on the customer page. The first time a deck is opened, all 55 card images (900px game versions) and its fonts are saved on the device, so games work offline.
+- **Setup:** 2–12 players (optional names = turn order), language, jokers on/off, and whether the game ends on the last card or on the 4th King.
+- **Play:** one shared device. A banner shows whose turn it is; tapping anywhere draws the next card, which flips with the deck's action text drawn by the same renderer as the dashboard preview. **Game effects** are set per card value in the dashboard (Deck → Action text → "In the player app"): *Make a rule*, *Pick a mate*, *Becomes master* and *King's Cup* (fills the cup; the 4th one overflows). The pause menu has undo, skip, "At the table", how to play and end game. The game is saved after every card.
+- **Installable:** it's a PWA, so players can add it to their home screen. The app shell works offline.
+
+Run it locally against the emulators:
+
+```bash
+cd app && npm install
+npx vite --mode emulator --port 5174
 ```
 
-- The code is **single-use**. After redemption the customer signs in with the provider they linked.
-- Turn on **App Check** in the app and set `enforceAppCheck: true` on `redeemSerialCode` (in `functions/src/codes.ts`). Failed attempts are already rate-limited to 10 per hour per IP.
-- The app can already read **published** decks (`decks` where `status == "published"`) and their art under `decks/*/art/**`. It should draw the action text on the card itself using `actions`, `textStyle` and `cardOverrides`. `admin/src/lib/render.ts` is the reference renderer to copy.
+**Demo build (no Firebase needed):** `npm run build:demo` in `app/` (or `npm run dev:demo`). It runs the real functions code in the browser with sample data: a circus deck, sample buyers and their codes, and shows the emails that would be sent.
 
 ## 5. Cost notes (why Firebase is a good fit at the start)
 
@@ -127,7 +140,7 @@ await linkWithCredential(auth.currentUser, googleOrAppleOrEmailCredential);
 
 - **Ads management** (advertisers, banners, placements, impressions)
 - **External designer** submissions portal and **royalty payouts** (decks already store designer and royalty %)
-- **App skins catalogue / unlock tracking** inside the app, and RevenueCat webhooks
+- **Paid deck/skin purchases inside the player app** (decks marked "Paid skin" show as locked for now)
 - **Shopee / Lazada / courier API** sync (CSV import covers it for now)
 - **CMS** pages (About Us, FAQ), social links, and the Google Review prompt
 - Malaysia **MyInvois e-invoicing** submission: invoices carry tax ID and SST today, but they aren't submitted to LHDN. Check with your accountant when this becomes mandatory for your revenue level.
