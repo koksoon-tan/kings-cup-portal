@@ -4,7 +4,7 @@ import {
   Breadcrumbs, Anchor, Text, Group, Button, SimpleGrid, Paper, Table, Stack, TextInput, Select, Textarea, Badge, CopyButton, ActionIcon, Tooltip, Switch, Alert,
 } from "@mantine/core";
 import { doc, collection, query, where, orderBy, updateDoc, serverTimestamp } from "firebase/firestore";
-import { IconCopy, IconCheck, IconKey } from "@tabler/icons-react";
+import { IconCopy, IconCheck, IconKey, IconRefresh } from "@tabler/icons-react";
 import { db } from "../lib/firebase";
 import { useCollection, useDocument } from "../lib/hooks";
 import { useAuth } from "../lib/auth";
@@ -15,6 +15,7 @@ import { fmtDate, money, label } from "../lib/format";
 import { call, toastError, toastOk } from "../lib/call";
 import { logAudit } from "../lib/audit";
 import { CodeActions } from "../components/CodeActions";
+import { askConfirm } from "../lib/confirm";
 import { MultiSelect } from "@mantine/core";
 
 function DecksOwned({ customer }: { customer: any }) {
@@ -70,15 +71,29 @@ export default function CustomerDetailPage() {
     try { await call("issueSerialCode", { customerId: id, sendEmail: true }, `Code generated and emailed to ${c.email}`); }
     catch { /* toast */ } finally { setBusy(false); }
   };
+  const regenerate = async () => {
+    const unused = ["generated", "sent"].includes(c.codeStatus);
+    const ok = await askConfirm(
+      `A new app code will be emailed to ${c.email}.` +
+      (unused ? " The current unused code will stop working." : " The redeemed code stays used; devices already signed in stay signed in."),
+      "Regenerate code", false);
+    if (!ok) return;
+    setBusy(true);
+    try { await call("issueSerialCode", { customerId: id, sendEmail: true, regenerate: true }, `New code generated and emailed to ${c.email}`); }
+    catch { /* toast */ } finally { setBusy(false); }
+  };
   const canIssue = canCodes && !["generated", "sent", "redeemed"].includes(c.codeStatus);
+  const canRegenerate = canCodes && !canIssue;
 
   return (
     <>
       <Breadcrumbs mb="xs"><Anchor component={Link} to="/customers" size="sm">Customers</Anchor><Text size="sm">{c.name || c.email}</Text></Breadcrumbs>
       <PageHeader title={c.name || c.email || "Customer"} subtitle={`First bought via ${label(c.source)} · customer since ${fmtDate(c.createdAt)}`}
-        actions={canIssue && (
+        actions={(canIssue || canRegenerate) && (
           <Tooltip label={c.email ? "" : "Add an email address first"} disabled={!!c.email}>
-            <Button leftSection={<IconKey size={16} />} onClick={issue} loading={busy} disabled={!c.email}>Generate &amp; email app code</Button>
+            {canIssue
+              ? <Button leftSection={<IconKey size={16} />} onClick={issue} loading={busy} disabled={!c.email}>Generate &amp; email app code</Button>
+              : <Button variant="light" leftSection={<IconRefresh size={16} />} onClick={regenerate} loading={busy} disabled={!c.email}>Regenerate &amp; email app code</Button>}
           </Tooltip>
         )} />
 

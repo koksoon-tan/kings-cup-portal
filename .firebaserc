@@ -12,6 +12,16 @@
           "kings-cup-play"
         ]
       }
+    },
+    "demo-kingscup": {
+      "hosting": {
+        "admin": [
+          "demo-kingscup"
+        ],
+        "play": [
+          "demo-kingscup-play"
+        ]
+      }
     }
   }
 }

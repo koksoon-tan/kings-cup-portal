@@ -8,3 +8,5 @@ tests/sample-invoice.pdf
 *.tsbuildinfo
 admin/dist-demo/
 app/dist-demo/
+emu-data/
+sample-decks/

@@ -4,8 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:emulator": "vite --mode emulator --port 5173 --strictPort",
+    "dev:demo": "vite --mode demo --port 5173 --strictPort",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build && firebase deploy --only hosting:admin"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "^5.3.0",

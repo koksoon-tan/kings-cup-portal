@@ -5,9 +5,12 @@ import { auth } from "../lib/firebase";
 import { toastError, toastOk } from "../lib/call";
 import { DemoLoginHelp } from "@demo";
 
+// Local emulator runs only: pre-fill the test admin created by scripts/emulators.sh.
+const EMULATOR = import.meta.env.VITE_USE_EMULATORS === "true";
+
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(EMULATOR ? "admin@example.com" : "");
+  const [password, setPassword] = useState(EMULATOR ? "password123!" : "");
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {

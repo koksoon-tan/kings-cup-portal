@@ -179,12 +179,31 @@ export async function issueCode(
 // Admin callables
 // ---------------------------------------------------------------------------
 
-/** issueSerialCode({ customerId, orderId?, sendEmail = true }) */
+/**
+ * issueSerialCode({ customerId, orderId?, sendEmail = true, regenerate = false })
+ * regenerate: the customer already has a code (unused or redeemed). Any unused code is revoked,
+ * then a new one is issued. A redeemed code stays redeemed; devices already signed in stay
+ * signed in, because every code for a customer opens the same app account.
+ */
 export const issueSerialCode = onCall({ region: REGION }, async (req) => {
   const actor = requireArea(req, "codes");
   const customerId = str(req.data?.customerId, "customerId", { required: true });
   const orderId = str(req.data?.orderId, "orderId") || undefined;
-  const res = await issueCode(customerId, { orderId, actor, sendEmail: req.data?.sendEmail !== false });
+  const regenerate = req.data?.regenerate === true;
+  if (regenerate) {
+    await db.runTransaction(async (tx) => {
+      const active = await tx.get(db.collection("serialCodes")
+        .where("customerId", "==", customerId).where("status", "in", ACTIVE));
+      active.docs.forEach((d) => {
+        tx.update(d.ref, { status: "revoked", revokedAt: FieldValue.serverTimestamp(), revokedReason: "Replaced by a regenerated code" });
+        audit(actor, "code.revoke", "serialCodes", d.id, { reason: "regenerated" }, tx);
+      });
+    });
+  }
+  const res = await issueCode(customerId, {
+    orderId, actor, sendEmail: req.data?.sendEmail !== false,
+    force: regenerate, reason: regenerate ? "regenerated" : undefined,
+  });
   return { codeId: res!.codeId };
 });
 
